@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>회원 관리</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.min.css">
+  <style>
+    body { max-width: 1000px; margin: auto; padding: 1rem; }
+    table { width: 100%; font-size: 0.9rem; }
+    input, select { width: 100%; }
+    .actions button { margin-right: 0.5rem; }
+    .header-actions { margin-bottom: 1rem; text-align: right; }
+  </style>
+</head>
+<body>
+  <h1>회원 관리</h1>
+
+  <form id="registerForm">
+    <h3>신규 등록</h3>
+    <table>
+      <tr>
+        <td>이름</td><td><input type="text" name="name" required /></td>
+        <td>생년월일</td><td><input type="date" name="birth" required /></td>
+      </tr>
+      <tr>
+        <td>전화번호</td><td><input type="text" name="phone" /></td>
+        <td>부모님 번호</td><td><input type="text" name="parent_phone" required /></td>
+      </tr>
+      <tr>
+        <td>학교</td><td><input type="text" name="school" /></td>
+        <td>학년</td><td><input type="text" name="grade" /></td>
+      </tr>
+      <tr>
+        <td>성별</td>
+        <td>
+          <select name="gender">
+            <option value="남">남</option>
+            <option value="여">여</option>
+          </select>
+        </td>
+        <td>수업</td>
+        <td>
+          <select name="class_id" id="classSelect">
+            <option value="">수업 선택</option>
+          </select>
+        </td>
+      </tr>
+      <tr>
+        <td colspan="4">
+          <input type="hidden" name="status" value="재원" />
+          <button type="submit">등록</button>
+        </td>
+      </tr>
+    </table>
+  </form>
+
+  <div class="header-actions">
+    <button onclick="openRegisterPopup()">+ 전체 등록</button>
+  </div>
+
+  <h3>전체 회원 목록</h3>
+  <table id="memberTable" border="1" cellspacing="0" cellpadding="5">
+    <thead>
+      <tr>
+        <th>이름</th><th>생년월일</th><th>전화번호</th><th>부모님 번호</th><th>학교</th><th>학년</th><th>성별</th><th>상태</th><th>관리</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    const apiBase = 'https://supermax.kr/college';
+
+    async function loadMembers() {
+      const res = await fetch(`${apiBase}/drmembers`);
+      const members = await res.json();
+      const tbody = document.querySelector('#memberTable tbody');
+      tbody.innerHTML = '';
+      members.forEach(m => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${m.name}</td>
+          <td>${m.birth?.slice(0, 10)}</td>
+          <td>${m.phone}</td>
+          <td>${m.parent_phone}</td>
+          <td>${m.school || ''}</td>
+          <td>${m.grade || ''}</td>
+          <td>${m.gender}</td>
+          <td>${m.status}</td>
+          <td class="actions">
+            <button onclick="editMember(${m.id})">수정</button>
+            <button onclick="deleteMember(${m.id})">삭제</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function loadClasses() {
+      const res = await fetch(`${apiBase}/drclasses`);
+      const classes = await res.json();
+      const select = document.getElementById('classSelect');
+      classes.forEach(cls => {
+        const option = document.createElement('option');
+        option.value = cls.id;
+        option.textContent = `${cls.title} (${cls.weekday} ${cls.time})`;
+        select.appendChild(option);
+      });
+    }
+
+    document.querySelector('#registerForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      const form = e.target;
+      const data = Object.fromEntries(new FormData(form).entries());
+      const res = await fetch(`${apiBase}/drregister-members`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify([data])
+      });
+      if (res.ok) {
+        form.reset();
+        loadMembers();
+      }
+    });
+
+    async function deleteMember(id) {
+      if (!confirm('정말 삭제할까요?')) return;
+      await fetch(`${apiBase}/drdelete-member/${id}`, { method: 'DELETE' });
+      loadMembers();
+    }
+
+    function editMember(id) {
+      alert('🛠️ 수정 기능은 추후 구현 예정입니다.');
+    }
+
+    function openRegisterPopup() {
+      window.open('register-popup.html', 'registerPopup', 'width=1200,height=700');
+    }
+
+    loadMembers();
+    loadClasses();
+  </script>
+</body>
+</html>

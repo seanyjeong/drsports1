@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>결제 관리</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.min.css">
+  <style>
+    body { max-width: 1200px; margin: auto; padding: 2rem; }
+    h1 { text-align: center; }
+    .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+    .summary div { background: #eef; padding: 1rem; border-radius: 8px; text-align: center; font-weight: bold; }
+    table { width: 100%; font-size: 0.9rem; margin-top: 1rem; }
+    select, input[type="month"] { margin-right: 1rem; }
+    .status { font-size: 0.85rem; color: #999; }
+    td input, td select { width: 100%; }
+  </style>
+</head>
+<body>
+  <h1>월별 결제 관리</h1>
+
+  <div>
+    <input type="month" id="monthInput" />
+    <button onclick="loadPaymentData()">조회</button>
+  </div>
+
+  <div class="summary" id="summary">
+    <div>총 인원<br><span id="total_students">0</span></div>
+    <div>재원 중<br><span id="active_students">0</span></div>
+    <div>총 예정<br><span id="total_expected">0</span>원</div>
+    <div>카드 결제<br><span id="total_card">0</span>원</div>
+    <div>계좌 결제<br><span id="total_bank">0</span>원</div>
+    <div>총 결제<br><span id="total_paid">0</span>원</div>
+  </div>
+
+  <table id="paymentTable" border="1" cellspacing="0" cellpadding="5">
+    <thead>
+      <tr>
+        <th>이름</th><th>성별</th><th>전화번호</th>
+        <th>예정금액</th><th>결제금액</th><th>결제일</th><th>결제수단</th><th>메모</th>
+        <th>저장</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    const apiBase = 'https://supermax.kr/college';
+
+    async function loadPaymentData() {
+      const month = document.getElementById('monthInput').value;
+      if (!month) return alert('월을 선택하세요');
+
+      const [summaryRes, listRes] = await Promise.all([
+        fetch(`${apiBase}/drpayment-summary?year_month=${month}`),
+        fetch(`${apiBase}/drpayment?year_month=${month}`)
+      ]);
+      const summary = await summaryRes.json();
+      const list = await listRes.json();
+
+      document.getElementById('total_students').innerText = summary.total_students;
+      document.getElementById('active_students').innerText = summary.active_students;
+      document.getElementById('total_expected').innerText = (summary.total_expected || 0).toLocaleString();
+      document.getElementById('total_card').innerText = (summary.total_card || 0).toLocaleString();
+      document.getElementById('total_bank').innerText = (summary.total_bank || 0).toLocaleString();
+      document.getElementById('total_paid').innerText = (summary.total_paid || 0).toLocaleString();
+
+      const tbody = document.querySelector('#paymentTable tbody');
+      tbody.innerHTML = '';
+
+      list.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${row.name}</td>
+          <td>${row.gender}</td>
+          <td>${row.phone}</td>
+          <td><input type="number" value="${row.expected_amount || ''}" /></td>
+          <td><input type="number" value="${row.paid_amount || ''}" /></td>
+          <td><input type="date" value="${row.payment_date ? row.payment_date.slice(0, 10) : ''}" /></td>
+          <td>
+            <select>
+              <option value="계좌" ${row.method === '계좌' ? 'selected' : ''}>계좌</option>
+              <option value="카드" ${row.method === '카드' ? 'selected' : ''}>카드</option>
+            </select>
+          </td>
+          <td><input type="text" value="${row.memo || ''}" /></td>
+          <td><button onclick="saveRow(this, ${row.member_id})">저장</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function saveRow(btn, memberId) {
+      const tr = btn.closest('tr');
+      const tds = tr.querySelectorAll('td');
+      const yearMonth = document.getElementById('monthInput').value;
+      const body = {
+        member_id: memberId,
+        year_month: yearMonth,
+        expected_amount: tds[3].querySelector('input').value,
+        paid_amount: tds[4].querySelector('input').value,
+        payment_date: tds[5].querySelector('input').value,
+        method: tds[6].querySelector('select').value,
+        memo: tds[7].querySelector('input').value
+      };
+
+      const res = await fetch(`${apiBase}/drpayment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      if (res.ok) {
+        alert('✅ 저장 완료');
+        loadPaymentData();
+      } else {
+        alert('❌ 저장 실패');
+      }
+    }
+  </script>
+</body>
+</html>

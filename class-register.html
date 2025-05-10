@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>수업 등록</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.min.css" />
+  <style>
+    body { max-width: 900px; margin: auto; padding: 2rem; }
+    table { width: 100%; margin-top: 1rem; }
+    input, select, textarea { width: 100%; }
+    .btns { text-align: right; margin-top: 1rem; }
+    .btns button { margin-left: 0.5rem; }
+  </style>
+</head>
+<body>
+  <h1>수업 등록</h1>
+
+  <form id="classForm">
+    <table>
+      <tr>
+        <td>수업명</td>
+        <td><input type="text" name="title" required /></td>
+      </tr>
+      <tr>
+        <td>요일</td>
+        <td>
+          <select name="weekday" required>
+            <option value="">선택</option>
+            <option value="월">월</option>
+            <option value="화">화</option>
+            <option value="수">수</option>
+            <option value="목">목</option>
+            <option value="금">금</option>
+            <option value="토">토</option>
+            <option value="일">일</option>
+          </select>
+        </td>
+      </tr>
+      <tr>
+        <td>시간</td>
+        <td><input type="time" name="time" required /></td>
+      </tr>
+      <tr>
+        <td>담당 강사</td>
+        <td><input type="text" name="instructor" /></td>
+      </tr>
+      <tr>
+        <td>비고</td>
+        <td><textarea name="description" rows="2"></textarea></td>
+      </tr>
+    </table>
+    <div class="btns">
+      <button type="reset">초기화</button>
+      <button type="submit">등록</button>
+    </div>
+  </form>
+
+  <h3>등록된 수업 목록</h3>
+  <table border="1" cellpadding="5" cellspacing="0">
+    <thead>
+      <tr>
+        <th>수업명</th><th>요일</th><th>시간</th><th>강사</th><th>비고</th><th>관리</th>
+      </tr>
+    </thead>
+    <tbody id="classList"></tbody>
+  </table>
+
+  <script>
+    const apiBase = 'https://supermax.kr/college';
+
+    document.querySelector('#classForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      const form = e.target;
+      const data = Object.fromEntries(new FormData(form).entries());
+
+      const res = await fetch(`${apiBase}/drclasses`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      if (res.ok) {
+        alert('✅ 수업 등록 완료');
+        form.reset();
+        loadClassList();
+      } else {
+        alert('❌ 등록 실패');
+      }
+    });
+
+    async function loadClassList() {
+      const res = await fetch(`${apiBase}/drclasses`);
+      const list = await res.json();
+      const tbody = document.querySelector('#classList');
+      tbody.innerHTML = '';
+      list.forEach(cls => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${cls.title}</td>
+          <td>${cls.weekday}</td>
+          <td>${cls.time}</td>
+          <td>${cls.instructor || '-'}</td>
+          <td>${cls.description || ''}</td>
+          <td><button onclick="deleteClass(${cls.id})">삭제</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function deleteClass(id) {
+      if (!confirm('정말 삭제할까요?')) return;
+      const res = await fetch(`${apiBase}/drclasses/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        alert('🗑️ 삭제 완료');
+        loadClassList();
+      }
+    }
+
+    loadClassList();
+  </script>
+</body>
+</html>

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>셀별 전체 등록</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 2rem;
+      background: #f5f5f5;
+      overflow-x: auto;
+    }
+    h2 { margin-top: 0; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      background: #fff;
+      table-layout: fixed;
+    }
+    th, td {
+      border: 1px solid #999;
+      padding: 0.6rem;
+      text-align: center;
+      min-width: 100px;
+      max-width: 140px;
+      overflow-wrap: break-word;
+    }
+    td[contenteditable="true"] {
+      background-color: #fef9e7;
+    }
+    .buttons {
+      margin-top: 1.5rem;
+      text-align: right;
+    }
+    button {
+      margin-left: 0.5rem;
+      padding: 0.5rem 1rem;
+      font-size: 1rem;
+    }
+    select {
+      font-size: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <h2>셀별 전체 등록</h2>
+  <p>✅ 엑셀에서 복사 → 셀 클릭 후 붙여넣기<br>✅ 셀 클릭 후 직접 수정 가능<br>✅ 아래 수업 선택은 모든 행에 일괄 적용됨</p>
+
+  <label>
+    수업 선택:
+    <select id="classSelect">
+      <option value="">-- 수업 선택 --</option>
+    </select>
+  </label>
+
+  <table id="registerTable">
+    <thead>
+      <tr>
+        <th>이름</th><th>생년월일</th><th>전화번호</th><th>부모님 번호</th>
+        <th>학교</th><th>학년</th><th>성별</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <div class="buttons">
+    <button onclick="submitTable()">등록</button>
+    <button onclick="window.close()">닫기</button>
+  </div>
+
+  <script>
+    const apiBase = 'https://supermax.kr/college';
+    const tbody = document.querySelector('#registerTable tbody');
+    const classSelect = document.getElementById('classSelect');
+
+    async function loadClasses() {
+      const res = await fetch(`${apiBase}/drclasses`);
+      const classes = await res.json();
+      classes.forEach(cls => {
+        const option = document.createElement('option');
+        option.value = cls.id;
+        option.textContent = `${cls.title} (${cls.weekday} ${cls.time})`;
+        classSelect.appendChild(option);
+      });
+    }
+
+    function addEmptyRow() {
+      const tr = document.createElement('tr');
+      for (let i = 0; i < 7; i++) {
+        const td = document.createElement('td');
+        td.contentEditable = 'true';
+        td.innerText = '';
+        tr.appendChild(td);
+      }
+      tbody.appendChild(tr);
+      return tr;
+    }
+
+    function submitTable() {
+      const class_id = classSelect.value;
+      if (!class_id) return alert('수업을 선택해주세요');
+
+      const data = [];
+      tbody.querySelectorAll('tr').forEach(tr => {
+        const cells = tr.querySelectorAll('td');
+        const row = Array.from(cells).map(td => td.innerText.trim());
+        if (row.some(cell => cell)) {
+          data.push({
+            name: row[0],
+            birth: row[1],
+            phone: row[2],
+            parent_phone: row[3],
+            school: row[4],
+            grade: row[5],
+            gender: row[6],
+            class_id: class_id
+          });
+        }
+      });
+
+      if (data.length === 0) return alert('입력된 데이터가 없습니다');
+
+      fetch(`${apiBase}/drregister-members`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      }).then(res => {
+        if (res.ok) {
+          alert('✅ 등록 완료');
+          window.close();
+        } else {
+          alert('❌ 등록 실패');
+        }
+      });
+    }
+
+    for (let i = 0; i < 30; i++) addEmptyRow();
+
+    tbody.addEventListener('paste', e => {
+      const clipboard = e.clipboardData.getData('text');
+      const rows = clipboard.split('\n').map(row => row.split('\t'));
+      const targetCell = document.activeElement;
+      if (!targetCell || targetCell.tagName !== 'TD') return;
+
+      const startCellIndex = targetCell.cellIndex;
+      const startRowIndex = targetCell.parentElement.rowIndex;
+
+      rows.forEach((row, r) => {
+        const targetRow = tbody.rows[startRowIndex + r] || addEmptyRow();
+        row.forEach((text, c) => {
+          const td = targetRow.cells[startCellIndex + c];
+          if (td) td.innerText = text;
+        });
+      });
+
+      e.preventDefault();
+    });
+
+    loadClasses();
+  </script>
+</body>
+</html>
